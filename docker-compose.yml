@@ -1,0 +1,77 @@
+services:
+  # Servicio de la aplicación PHP
+  app:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+      selenium-hub:
+        condition: service_healthy
+    environment:
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=gimnasios
+
+  # Servicio de MySQL
+  db:
+    image: mysql:5.7
+    platform: linux/amd64
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=gimnasios
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./gimnasios.sql:/docker-entrypoint-initdb.d/gimnasios.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Servicio de phpMyAdmin (opcional)
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    platform: linux/amd64
+    ports:
+      - "8081:80"
+    environment:
+      - PMA_HOST=db
+      - MYSQL_ROOT_PASSWORD=root
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Servicio de Selenium Hub
+  selenium-hub:
+    image: selenium/hub:latest
+    container_name: selenium-hub
+    ports:
+      - "4444:4444"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:4444/status"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  # Servicio de Selenium Chrome Node
+  chrome:
+    image: selenium/node-chrome:latest
+    container_name: selenium-node-chrome
+    shm_size: '2g'
+    depends_on:
+      selenium-hub:
+        condition: service_healthy
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+
+volumes:
+  mysql_data:
