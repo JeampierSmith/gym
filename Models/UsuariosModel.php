@@ -1,6 +1,14 @@
 <?php
+require_once __DIR__ . '/Query.php';
 // Definición de la clase UsuariosModel que hereda de la clase Query
 class UsuariosModel extends Query {
+    // Obtener usuario por nombre de usuario (para login API)
+    public function getByUsername($usuario) {
+        $sql = "SELECT * FROM usuarios WHERE usuario = ? AND estado = 1 LIMIT 1";
+        $query = $this->conect->prepare($sql);
+        $query->execute([$usuario]);
+        return $query->fetch(PDO::FETCH_ASSOC);
+    }
     
     // Constructor de la clase que llama al constructor de la clase padre
     public function __construct() {
@@ -107,6 +115,56 @@ class UsuariosModel extends Query {
         }
         
         return $res;
+    }
+        // Métodos para la API REST
+    public function registrarUsuarioApi($input) {
+        return $this->registrarUsuario(
+            $input['usuario'],
+            $input['nombre'],
+            $input['correo'],
+            $input['telefono'],
+            $input['clave'],
+            $input['rol']
+        );
+    }
+
+    public function actualizarUsuarioApi($id, $input) {
+        // Actualización parcial: solo los campos enviados
+        $camposPermitidos = ["usuario", "nombre", "correo", "telefono", "clave", "rol"];
+        $set = [];
+        $datos = [];
+        foreach ($camposPermitidos as $campo) {
+            if (array_key_exists($campo, $input)) {
+                $set[] = "$campo = ?";
+                $datos[] = $input[$campo];
+            }
+        }
+        if (empty($set)) {
+            return ["error" => "No se enviaron campos válidos para actualizar"];
+        }
+        $sql = "UPDATE usuarios SET ".implode(", ", $set)." WHERE id = ?";
+        $datos[] = $id;
+        $data = $this->save($sql, $datos);
+        if ($data == 1) {
+            return ["success" => true, "message" => "Usuario actualizado correctamente"];
+        } else {
+            return ["error" => "Error al actualizar el usuario"];
+        }
+    }
+
+    public function eliminarUsuario($id) {
+        $data = $this->accionUser(0, $id);
+        if ($data == 1) {
+            return ["success" => true, "message" => "Usuario eliminado correctamente"];
+        } else {
+            return ["error" => "Error al eliminar el usuario"];
+        }
+    }
+    public function getUsuarioById($id) {
+        $sql = "SELECT * FROM usuarios WHERE id = ? LIMIT 1";
+        $query = $this->conect->prepare($sql);
+        $query->execute([$id]);
+        return $query->fetch(PDO::FETCH_ASSOC);
     }
 }
 ?>

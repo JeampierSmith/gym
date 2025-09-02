@@ -2,18 +2,205 @@
 
 use Luecano\NumeroALetras\NumeroALetras;
 
-class Clientes extends Controller
-{
+class Clientes extends Controller {
+    // Métodos exclusivos para la API
+    public function apiListar() {
+        require_once __DIR__ . '/../Models/ClientesModel.php';
+        $model = new \ClientesModel();
+        $data = $model->getClientes(1);
+        echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    }
+
+    public function apiEditar($id) {
+        require_once __DIR__ . '/../Models/ClientesModel.php';
+        $model = new \ClientesModel();
+        $data = $model->editarCli($id);
+        echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    }
+
+    public function apiRegistrar() {
+        require_once __DIR__ . '/../Models/ClientesModel.php';
+        $model = new \ClientesModel();
+        $input = json_decode(file_get_contents('php://input'), true);
+        // Validar campos requeridos
+        $campos = ['dni', 'nombre', 'telefono', 'direccion'];
+        foreach ($campos as $campo) {
+            if (empty($input[$campo])) {
+                http_response_code(400);
+                echo json_encode(["error" => "El campo $campo es obligatorio"]);
+                return;
+            }
+        }
+        $foto = isset($input['foto']) ? $input['foto'] : 'default.png';
+        $id_user = isset($input['id_user']) ? $input['id_user'] : 1;
+        $result = $model->registrarCliente($input['dni'], $input['nombre'], $input['telefono'], $input['direccion'], $foto, $id_user);
+        if ($result === "ok") {
+            echo json_encode(["success" => true, "message" => "Cliente registrado correctamente"]);
+        } elseif ($result === "existe") {
+            http_response_code(409);
+            echo json_encode(["error" => "El cliente ya existe"]);
+        } else {
+            http_response_code(500);
+            echo json_encode(["error" => "Error al registrar el cliente"]);
+        }
+    }
+
+    public function apiActualizar($id) {
+        require_once __DIR__ . '/../Models/ClientesModel.php';
+        $model = new \ClientesModel();
+        $input = json_decode(file_get_contents('php://input'), true);
+        $cliente = $model->editarCli($id);
+        if (!$cliente) {
+            http_response_code(404);
+            echo json_encode(["error" => "Cliente no encontrado"]);
+            return;
+        }
+        $camposPermitidos = ["dni", "nombre", "telefono", "direccion", "foto"];
+        $datosActualizar = [];
+        foreach ($camposPermitidos as $campo) {
+            if (array_key_exists($campo, $input)) {
+                $datosActualizar[$campo] = $input[$campo];
+            }
+        }
+        if (empty($datosActualizar)) {
+            http_response_code(400);
+            echo json_encode(["error" => "No se enviaron campos válidos para actualizar"]);
+            return;
+        }
+        // Usar los datos actuales si no se envía algún campo
+        $datosFinales = [
+            isset($datosActualizar['dni']) ? $datosActualizar['dni'] : $cliente['dni'],
+            isset($datosActualizar['nombre']) ? $datosActualizar['nombre'] : $cliente['nombre'],
+            isset($datosActualizar['telefono']) ? $datosActualizar['telefono'] : $cliente['telefono'],
+            isset($datosActualizar['direccion']) ? $datosActualizar['direccion'] : $cliente['direccion'],
+            isset($datosActualizar['foto']) ? $datosActualizar['foto'] : $cliente['foto'],
+            $id
+        ];
+        $result = $model->modificarCliente(...$datosFinales);
+        if ($result === "modificado") {
+            echo json_encode(["success" => true, "message" => "Cliente actualizado correctamente"]);
+        } else {
+            http_response_code(500);
+            echo json_encode(["error" => "Error al actualizar el cliente"]);
+        }
+    }
+
+    public function apiEliminar($id) {
+        require_once __DIR__ . '/../Models/ClientesModel.php';
+        $model = new \ClientesModel();
+        $result = $model->accionCli(0, $id);
+        if ($result == 1) {
+            echo json_encode(["success" => true, "message" => "Cliente eliminado correctamente"]);
+        } else {
+            http_response_code(500);
+            echo json_encode(["error" => "Error al eliminar el cliente"]);
+        }
+    }
     protected $id_user;
     public function __construct()
     {
-        session_start();
-        if (empty($_SESSION['activo'])) {
-            header("location: " . base_url);
+        $isApi = (strpos($_SERVER['REQUEST_URI'], '/api/') !== false);
+        if ($isApi) {
+            // API: no sesión, no redirección
+            $this->id_user = 1;
+        } else {
+            // Web: requiere sesión y base_url
+            session_start();
+            if (empty($_SESSION['activo'])) {
+                header("location: " . base_url);
+            }
+            $this->id_user = $_SESSION['id_usuario'];
         }
         parent::__construct();
-        $this->id_user = $_SESSION['id_usuario'];
     }
+        public function get($id) {
+    require_once __DIR__ . '/../Models/ClientesModel.php';
+    $model = new ClientesModel();
+    $data = $model->editarCli($id);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+        }
+
+        public function getAll() {
+    require_once __DIR__ . '/../Models/ClientesModel.php';
+    $model = new ClientesModel();
+    $data = $model->getClientes(1);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+        }
+
+        public function create($data) {
+        require_once __DIR__ . '/../Models/ClientesModel.php';
+        $model = new ClientesModel();
+        $campos = ['dni', 'nombre', 'telefono', 'direccion'];
+        foreach ($campos as $campo) {
+            if (empty($data[$campo])) {
+                http_response_code(400);
+                echo json_encode(["error" => "El campo $campo es obligatorio"]);
+                return;
+            }
+        }
+        $foto = isset($data['foto']) ? $data['foto'] : 'default.png';
+        $id_user = isset($data['id_user']) ? $data['id_user'] : 1;
+        $result = $model->registrarCliente($data['dni'], $data['nombre'], $data['telefono'], $data['direccion'], $foto, $id_user);
+        if ($result === "ok") {
+            echo json_encode(["success" => true, "message" => "Cliente registrado correctamente"]);
+        } elseif ($result === "existe") {
+            http_response_code(409);
+            echo json_encode(["error" => "El cliente ya existe"]);
+        } else {
+            http_response_code(500);
+            echo json_encode(["error" => "Error al registrar el cliente"]);
+        }
+        }
+
+        public function update($id, $data) {
+        require_once __DIR__ . '/../Models/ClientesModel.php';
+        $model = new ClientesModel();
+        $cliente = $model->editarCli($id);
+        if (!$cliente) {
+            http_response_code(404);
+            echo json_encode(["error" => "Cliente no encontrado"]);
+            return;
+        }
+        $camposPermitidos = ["dni", "nombre", "telefono", "direccion", "foto"];
+        $datosActualizar = [];
+        foreach ($camposPermitidos as $campo) {
+            if (array_key_exists($campo, $data)) {
+                $datosActualizar[$campo] = $data[$campo];
+            }
+        }
+        if (empty($datosActualizar)) {
+            http_response_code(400);
+            echo json_encode(["error" => "No se enviaron campos válidos para actualizar"]);
+            return;
+        }
+        $datosFinales = [
+            isset($datosActualizar['dni']) ? $datosActualizar['dni'] : $cliente['dni'],
+            isset($datosActualizar['nombre']) ? $datosActualizar['nombre'] : $cliente['nombre'],
+            isset($datosActualizar['telefono']) ? $datosActualizar['telefono'] : $cliente['telefono'],
+            isset($datosActualizar['direccion']) ? $datosActualizar['direccion'] : $cliente['direccion'],
+            isset($datosActualizar['foto']) ? $datosActualizar['foto'] : $cliente['foto'],
+            $id
+        ];
+        $result = $model->modificarCliente(...$datosFinales);
+        if ($result === "modificado") {
+            echo json_encode(["success" => true, "message" => "Cliente actualizado correctamente"]);
+        } else {
+            http_response_code(500);
+            echo json_encode(["error" => "Error al actualizar el cliente"]);
+        }
+        }
+
+        public function delete($id) {
+        require_once __DIR__ . '/../Models/ClientesModel.php';
+        $model = new ClientesModel();
+        $result = $model->accionCli(0, $id);
+        if ($result == 1) {
+            echo json_encode(["success" => true, "message" => "Cliente eliminado correctamente"]);
+        } else {
+            http_response_code(500);
+            echo json_encode(["error" => "Error al eliminar el cliente"]);
+        }
+        }
     public function index()
     {
         $this->views->getView($this, "index");
