@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../Config.php';
 class Conexion{
     private $conect;
     public function __construct()
