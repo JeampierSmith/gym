@@ -1,16 +1,196 @@
 <?php
 
-class Planes extends Controller
-{
+class Planes extends Controller {
+    // Métodos CRUD para la API
+    public function get($id) {
+        require_once __DIR__ . '/../Models/PlanesModel.php';
+        $model = new PlanesModel();
+        $data = $model->editarPlan($id);
+        echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    }
+
+    public function getAll() {
+        require_once __DIR__ . '/../Models/PlanesModel.php';
+        $model = new PlanesModel();
+        $data = $model->getPlanes(1);
+        echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    }
+
+    public function create($data) {
+        require_once __DIR__ . '/../Models/PlanesModel.php';
+        $model = new PlanesModel();
+        $campos = ['nombre', 'descripcion', 'precio_plan', 'condicion'];
+        foreach ($campos as $campo) {
+            if (empty($data[$campo])) {
+                http_response_code(400);
+                echo json_encode(["error" => "El campo $campo es obligatorio"]);
+                return;
+            }
+        }
+        $imagen = isset($data['imagen']) ? $data['imagen'] : 'default.png';
+        $id_user = isset($data['id_user']) ? $data['id_user'] : 1;
+        $result = $model->registrarPlan($data['nombre'], $data['descripcion'], $data['precio_plan'], $data['condicion'], $imagen, $id_user);
+        if ($result === "ok") {
+            echo json_encode(["success" => true, "message" => "Plan registrado correctamente"]);
+        } elseif ($result === "existe") {
+            http_response_code(409);
+            echo json_encode(["error" => "El plan ya existe"]);
+        } else {
+            http_response_code(500);
+            echo json_encode(["error" => "Error al registrar el plan"]);
+        }
+    }
+
+    public function update($id, $data) {
+        require_once __DIR__ . '/../Models/PlanesModel.php';
+        $model = new PlanesModel();
+        $plan = $model->editarPlan($id);
+        if (!$plan) {
+            http_response_code(404);
+            echo json_encode(["error" => "Plan no encontrado"]);
+            return;
+        }
+        $camposObligatorios = ["nombre", "descripcion", "precio_plan", "condicion", "imagen"];
+        $datosFinales = [];
+        foreach ($camposObligatorios as $campo) {
+            if (array_key_exists($campo, $data)) {
+                $valor = $data[$campo];
+            } else {
+                $valor = isset($plan[$campo]) ? $plan[$campo] : null;
+            }
+            if ($valor === null && $campo === "nombre") {
+                http_response_code(400);
+                echo json_encode(["error" => "El campo 'nombre' es obligatorio"]);
+                return;
+            }
+            $datosFinales[] = $valor;
+        }
+        $datosFinales[] = $id;
+        $result = $model->modificarPlan(...$datosFinales);
+        if ($result === "modificado") {
+            echo json_encode(["success" => true, "message" => "Plan actualizado correctamente"]);
+        } else {
+            http_response_code(500);
+            echo json_encode(["error" => "Error al actualizar el plan"]);
+        }
+    }
+
+    public function delete($id) {
+        require_once __DIR__ . '/../Models/PlanesModel.php';
+        $model = new PlanesModel();
+        $result = $model->accionPlan(0, $id);
+        if ($result == 1) {
+            echo json_encode(["success" => true, "message" => "Plan eliminado correctamente"]);
+        } else {
+            http_response_code(500);
+            echo json_encode(["error" => "Error al eliminar el plan"]);
+        }
+    }
+    // Métodos exclusivos para la API
+    public function apiListar() {
+        require_once __DIR__ . '/../Models/PlanesModel.php';
+        $model = new PlanesModel();
+        $data = $model->getPlanes(1);
+        echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    }
+
+    public function apiEditar($id) {
+        require_once __DIR__ . '/../Models/PlanesModel.php';
+        $model = new PlanesModel();
+        $data = $model->editarPlan($id);
+        echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    }
+
+    public function apiRegistrar() {
+        require_once __DIR__ . '/../Models/PlanesModel.php';
+        $model = new PlanesModel();
+        $input = json_decode(file_get_contents('php://input'), true);
+        $campos = ['nombre', 'descripcion', 'precio_plan', 'condicion'];
+        foreach ($campos as $campo) {
+            if (empty($input[$campo])) {
+                http_response_code(400);
+                echo json_encode(["error" => "El campo $campo es obligatorio"]);
+                return;
+            }
+        }
+        $imagen = isset($input['imagen']) ? $input['imagen'] : 'default.png';
+        $id_user = isset($input['id_user']) ? $input['id_user'] : 1;
+        $result = $model->registrarPlan($input['nombre'], $input['descripcion'], $input['precio_plan'], $input['condicion'], $imagen, $id_user);
+        if ($result === "ok") {
+            echo json_encode(["success" => true, "message" => "Plan registrado correctamente"]);
+        } elseif ($result === "existe") {
+            http_response_code(409);
+            echo json_encode(["error" => "El plan ya existe"]);
+        } else {
+            http_response_code(500);
+            echo json_encode(["error" => "Error al registrar el plan"]);
+        }
+    }
+
+    public function apiActualizar($id) {
+        require_once __DIR__ . '/../Models/PlanesModel.php';
+        $model = new PlanesModel();
+        $input = json_decode(file_get_contents('php://input'), true);
+        $plan = $model->editarPlan($id);
+        if (!$plan) {
+            http_response_code(404);
+            echo json_encode(["error" => "Plan no encontrado"]);
+            return;
+        }
+        $camposPermitidos = ["nombre", "descripcion", "precio_plan", "condicion", "imagen"];
+        $datosActualizar = [];
+        foreach ($camposPermitidos as $campo) {
+            if (array_key_exists($campo, $input)) {
+                $datosActualizar[$campo] = $input[$campo];
+            }
+        }
+        if (empty($datosActualizar)) {
+            http_response_code(400);
+            echo json_encode(["error" => "No se enviaron campos válidos para actualizar"]);
+            return;
+        }
+        $datosFinales = [
+            isset($datosActualizar['nombre']) ? $datosActualizar['nombre'] : $plan['nombre'],
+            isset($datosActualizar['descripcion']) ? $datosActualizar['descripcion'] : $plan['descripcion'],
+            isset($datosActualizar['precio_plan']) ? $datosActualizar['precio_plan'] : $plan['precio_plan'],
+            isset($datosActualizar['condicion']) ? $datosActualizar['condicion'] : $plan['condicion'],
+            isset($datosActualizar['imagen']) ? $datosActualizar['imagen'] : $plan['imagen'],
+            $id
+        ];
+        $result = $model->modificarPlan(...$datosFinales);
+        if ($result === "modificado") {
+            echo json_encode(["success" => true, "message" => "Plan actualizado correctamente"]);
+        } else {
+            http_response_code(500);
+            echo json_encode(["error" => "Error al actualizar el plan"]);
+        }
+    }
+
+    public function apiEliminar($id) {
+        require_once __DIR__ . '/../Models/PlanesModel.php';
+        $model = new PlanesModel();
+        $result = $model->accionPlan(0, $id);
+        if ($result == 1) {
+            echo json_encode(["success" => true, "message" => "Plan eliminado correctamente"]);
+        } else {
+            http_response_code(500);
+            echo json_encode(["error" => "Error al eliminar el plan"]);
+        }
+    }
     protected $user;
     public function __construct()
     {
-        session_start();
-        if (empty($_SESSION['activo'])) {
-            header("location: " . base_url);
+        $isApi = (strpos($_SERVER['REQUEST_URI'], '/api/') !== false);
+        if ($isApi) {
+            $this->user = 1;
+        } else {
+            session_start();
+            if (empty($_SESSION['activo'])) {
+                header("location: " . base_url);
+            }
+            $this->user = $_SESSION['id_usuario'];
         }
         parent::__construct();
-        $this->user = $_SESSION['id_usuario'];
     }
     public function index()
     {

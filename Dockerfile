@@ -22,8 +22,10 @@ WORKDIR /var/www/html
 # Copia el contenido del directorio actual al contenedor en /var/www/html
 COPY . /var/www/html
 
+
 # Instalar dependencias
 RUN composer install --no-interaction --no-plugins --no-scripts
+RUN composer require firebase/php-jwt
 
 # Configurar permisos
 RUN chown -R www-data:www-data /var/www/html \

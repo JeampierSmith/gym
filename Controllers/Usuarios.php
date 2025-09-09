@@ -18,24 +18,13 @@ class Usuarios extends Controller{
     }
     public function listar()
     {
-        if (empty($_SESSION['activo'])) {
-            header("location: " . base_url);
-        }
-        if ($_SESSION['rol'] != 1) {
-            header('Location: ' . base_url . 'administracion/permisos');
-            exit;
-        }
+        // Devuelve datos con campos extra para DataTables (web)
         $data = $this->model->getUsuarios(1);
         for ($i = 0; $i < count($data); $i++) {
             $data[$i]['estado'] = '<span class="badge bg-success">Activo</span>';
-            $data[$i]['eliminar'] = '';
             $data[$i]['editar'] = '<button class="btn btn-outline-primary" type="button" onclick="btnEditarUser(' . $data[$i]['id'] . ');"><i class="fas fa-edit"></i></button>';
             $data[$i]['eliminar'] = '<button class="btn btn-outline-danger" type="button" onclick="btnEliminarUser(' . $data[$i]['id'] . ');"><i class="fas fa-trash-alt"></i></button>';
-            if ($data[$i]['rol'] == 1) {
-                $data[$i]['rol'] = '<span class="badge bg-info">Administrador</span>';
-            } else {
-                $data[$i]['rol'] = '<span class="badge bg-danger">Empleado</span>';
-            }
+            $data[$i]['rol'] = $data[$i]['rol'] == 1 ? '<span class="badge bg-info">Administrador</span>' : '<span class="badge bg-danger">Empleado</span>';
         }
         echo json_encode($data, JSON_UNESCAPED_UNICODE);
         die();
@@ -148,6 +137,35 @@ class Usuarios extends Controller{
         echo json_encode($msg, JSON_UNESCAPED_UNICODE);
         die();
     }
+        public function get($id) {
+            require_once __DIR__ . '/../Models/UsuariosModel.php';
+            $model = new \Models\UsuariosModel();
+            return $model->find($id);
+        }
+
+        public function getAll() {
+            require_once __DIR__ . '/../Models/UsuariosModel.php';
+            $model = new \Models\UsuariosModel();
+            return $model->all();
+        }
+
+        public function create($data) {
+            require_once __DIR__ . '/../Models/UsuariosModel.php';
+            $model = new \Models\UsuariosModel();
+            return $model->create($data);
+        }
+
+        public function update($id, $data) {
+            require_once __DIR__ . '/../Models/UsuariosModel.php';
+            $model = new \Models\UsuariosModel();
+            return $model->update($id, $data);
+        }
+
+        public function delete($id) {
+            require_once __DIR__ . '/../Models/UsuariosModel.php';
+            $model = new \Models\UsuariosModel();
+            return $model->delete($id);
+        }
     public function cambiarPass()
     {
         $actual = strClean($_POST['clave_actual']);
@@ -198,4 +216,59 @@ class Usuarios extends Controller{
         $data['usuarios'] = $this->model->getUsuarios(0);
         $this->views->getView($this, "inactivos", $data);
     }
+
+    public function apiListar()
+{
+    $data = $this->model->getUsuarios(1);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+}
+
+public function apiEditar($id)
+{
+    $data = $this->model->getUsuarioById($id);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+}
+
+public function apiRegistrar()
+{
+    $input = json_decode(file_get_contents('php://input'), true);
+    $result = $this->model->registrarUsuarioApi($input);
+    echo json_encode($result, JSON_UNESCAPED_UNICODE);
+}
+
+public function apiActualizar($id)
+{
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input) || empty($input)) {
+        http_response_code(400);
+        echo json_encode(["error" => "No se recibieron datos para actualizar"]);
+        return;
+    }
+    $usuario = $this->model->getUsuarioById($id);
+    if (!$usuario) {
+        http_response_code(404);
+        echo json_encode(["error" => "Usuario no encontrado"]);
+        return;
+    }
+    $camposPermitidos = ["usuario", "nombre", "correo", "telefono", "clave", "rol"];
+    $datosActualizar = [];
+    foreach ($camposPermitidos as $campo) {
+        if (array_key_exists($campo, $input)) {
+            $datosActualizar[$campo] = $input[$campo];
+        }
+    }
+    if (empty($datosActualizar)) {
+        http_response_code(400);
+        echo json_encode(["error" => "No se enviaron campos válidos para actualizar"]);
+        return;
+    }
+    $result = $this->model->actualizarUsuarioApi($id, $datosActualizar);
+    echo json_encode($result, JSON_UNESCAPED_UNICODE);
+}
+
+public function apiEliminar($id)
+{
+    $result = $this->model->eliminarUsuario($id);
+    echo json_encode($result, JSON_UNESCAPED_UNICODE);
+}
 }

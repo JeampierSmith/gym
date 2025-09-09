@@ -1,4 +1,4 @@
-# NotisApp Gym
+# Gym
 
 Aplicación web para la gestión de gimnasios desarrollada con PHP, MySQL y Docker.
 
